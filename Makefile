@@ -1,0 +1,19 @@
+CFLAGS=-nostdlib -O2 -fPIC -Wall
+LDFLAGS=-shared
+
+OBJECTS=$(SOURCES:.c=.o)
+SOURCES=nvram.c
+TARGET=libnvram.so
+
+all: $(SOURCES) $(TARGET)
+
+$(TARGET): $(OBJECTS)
+	$(CC) $(LDFLAGS) $(OBJECTS) -o $@
+
+.c.o:
+	$(CC) -c $(CFLAGS) $< -o $@
+
+clean:
+	rm -f *.o libnvram.so
+
+.PHONY: clean
