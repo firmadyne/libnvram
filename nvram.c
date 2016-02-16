@@ -34,6 +34,9 @@
 
 #define PRINT_MSG(fmt, ...) do { if (DEBUG) { fprintf(stderr, "%s: "fmt, __FUNCTION__, __VA_ARGS__); } } while (0)
 
+/* Weak symbol definitions for library functions that may not be present */
+__typeof__(ftok) __attribute__((weak)) ftok;
+
 /* Global variables */
 static int init = 0;
 static char temp[BUFFER_SIZE];
@@ -54,7 +57,7 @@ static int sem_get() {
     };
 
     // Generate key for semaphore based on the mount point
-    if ((key = ftok(MOUNT_POINT, 'A')) == -1) {
+    if (!ftok || (key = ftok(MOUNT_POINT, IPC_KEY)) == -1) {
         PRINT_MSG("%s\n", "Unable to get semaphore key!");
         return -1;
     }
@@ -206,7 +209,7 @@ int nvram_reset(void) {
 
 int nvram_clear(void) {
     char path[PATH_MAX] = MOUNT_POINT;
-    struct dirent entry, *result;
+    struct dirent *entry;
     int ret = E_SUCCESS;
     DIR *dir;
 
@@ -220,13 +223,13 @@ int nvram_clear(void) {
         return E_FAILURE;
     }
 
-    while (readdir_r(dir, &entry, &result)) {
-        if (!strncmp(result->d_name, ".", 1) || !strcmp(result->d_name, "..")) {
-            PRINT_MSG("Skipping %s\n", result->d_name);
+    while ((entry = readdir(dir))) {
+        if (!strncmp(entry->d_name, ".", 1) || !strcmp(entry->d_name, "..")) {
+            PRINT_MSG("Skipping %s\n", entry->d_name);
             continue;
         }
 
-        strncpy(path + strlen(MOUNT_POINT), result->d_name, ARRAY_SIZE(path) - ARRAY_SIZE(MOUNT_POINT) - 1);
+        strncpy(path + strlen(MOUNT_POINT), entry->d_name, ARRAY_SIZE(path) - ARRAY_SIZE(MOUNT_POINT) - 1);
         path[PATH_MAX - 1] = '\0';
 
         PRINT_MSG("%s\n", path);
@@ -435,7 +438,7 @@ int nvram_get_int(const char *key) {
 
 int nvram_getall(char *buf, size_t len) {
     char path[PATH_MAX] = MOUNT_POINT;
-    struct dirent entry, *result;
+    struct dirent *entry;
     size_t pos = 0, ret;
     DIR *dir;
     FILE *f;
@@ -453,15 +456,15 @@ int nvram_getall(char *buf, size_t len) {
         return E_FAILURE;
     }
 
-    while (readdir_r(dir, &entry, &result)) {
-        if (!strncmp(result->d_name, ".", 1) || !strcmp(result->d_name, "..")) {
+    while ((entry = readdir(dir))) {
+        if (!strncmp(entry->d_name, ".", 1) || !strcmp(entry->d_name, "..")) {
             continue;
         }
 
-        strncpy(path + strlen(MOUNT_POINT), result->d_name, ARRAY_SIZE(path) - ARRAY_SIZE(MOUNT_POINT) - 1);
+        strncpy(path + strlen(MOUNT_POINT), entry->d_name, ARRAY_SIZE(path) - ARRAY_SIZE(MOUNT_POINT) - 1);
         path[PATH_MAX - 1] = '\0';
 
-        if ((ret = snprintf(buf + pos, len - pos, "%s=", result->d_name)) != strlen(result->d_name) + 1) {
+        if ((ret = snprintf(buf + pos, len - pos, "%s=", entry->d_name)) != strlen(entry->d_name) + 1) {
             closedir(dir);
             sem_unlock();
             PRINT_MSG("Unable to append key %s!\n", buf + pos);
@@ -687,4 +690,5 @@ int nvram_commit(void) {
     return E_SUCCESS;
 }
 
+// Hack to use static variables in shared library
 #include "alias.c"
