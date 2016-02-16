@@ -1,7 +1,7 @@
 #ifndef INCLUDE_CONFIG_H
 #define INCLUDE_CONFIG_H
 
-// Determines whether debugging information should be printed to stdout.
+// Determines whether debugging information should be printed to stderr.
 #define DEBUG               1
 // Determines the size of the internal buffer, used for manipulating and storing key values, etc.
 #define BUFFER_SIZE         256
@@ -11,8 +11,10 @@
 #define USER_BUFFER_SIZE    64
 // Determines the unique separator character (as string) used for the list implementation. Do not use "\0".
 #define LIST_SEP            "\xff"
-// Special argument used to change the semantics of the nvram_list_exists() function.
+// Special argument used to change the semantics of the nvram_list_exist() function.
 #define LIST_MAGIC          0xdeadbeef
+// Identifier value used to generate IPC key in ftok()
+#define IPC_KEY             'A'
 // Mount point of the base NVRAM implementation.
 #define MOUNT_POINT         "/firmadyne/libnvram/"
 // Location of NVRAM override values that are copied into the base NVRAM implementation.

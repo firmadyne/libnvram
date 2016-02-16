@@ -1,5 +1,5 @@
-CFLAGS=-nostdlib -O2 -fPIC -Wall
-LDFLAGS=-shared
+CFLAGS=-O2 -fPIC -Wall
+LDFLAGS=-shared -nostdlib
 
 OBJECTS=$(SOURCES:.c=.o)
 SOURCES=nvram.c
