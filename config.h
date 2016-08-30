@@ -15,6 +15,8 @@
 #define LIST_MAGIC          0xdeadbeef
 // Identifier value used to generate IPC key in ftok()
 #define IPC_KEY             'A'
+// Timeout for the semaphore
+#define IPC_TIMEOUT         1000
 // Mount point of the base NVRAM implementation.
 #define MOUNT_POINT         "/firmadyne/libnvram/"
 // Location of NVRAM override values that are copied into the base NVRAM implementation.

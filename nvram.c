@@ -43,6 +43,7 @@ static char temp[BUFFER_SIZE];
 
 static int sem_get() {
     int key, semid = 0;
+    unsigned int timeout = 0;
     struct semid_ds seminfo;
     union semun {
         int val;
@@ -74,8 +75,7 @@ static int sem_get() {
             semctl(semid, 0, IPC_RMID);
             semid = -1;
         }
-    }
-    else if (errno == EEXIST) {
+    } else if (errno == EEXIST) {
         // Get the semaphore in non-exclusive mode
         if ((semid = semget(key, 1, 0)) < 0) {
             PRINT_MSG("%s\n", "Unable to get semaphore non-exclusively!");
@@ -84,18 +84,20 @@ static int sem_get() {
 
         semun.buf = &seminfo;
         // Wait for the semaphore to be initialized
-        while (1) {
+        while (timeout++ < IPC_TIMEOUT) {
             semctl(semid, 0, IPC_STAT, semun);
 
             if (semun.buf && semun.buf->sem_otime != 0) {
                 break;
             }
 
-            PRINT_MSG("Waiting for semaphore initialization (Key: %x, Semaphore: %x)...\n", key, semid);
+            if (!(timeout % 100)) {
+                PRINT_MSG("Waiting for semaphore initialization (Key: %x, Semaphore: %x)...\n", key, semid);
+            }
         }
     }
 
-    return semid;
+    return (timeout < IPC_TIMEOUT) ? semid : -1;
 }
 
 static void sem_lock() {

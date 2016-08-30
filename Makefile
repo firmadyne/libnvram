@@ -14,6 +14,6 @@ $(TARGET): $(OBJECTS)
 	$(CC) -c $(CFLAGS) $< -o $@
 
 clean:
-	rm -f *.o libnvram.so
+	rm -f *.o libnvram.so test
 
 .PHONY: clean
