@@ -615,7 +615,7 @@ static int nvram_set_default_builtin(void) {
 static int nvram_set_default_image(void) {
     PRINT_MSG("%s\n", "Copying overrides from defaults folder!");
     sem_lock();
-    system("/bin/cp "OVERRIDE_POINT"* /libnvram/");
+    system("/bin/cp "OVERRIDE_POINT"* "MOUNT_POINT);
     sem_unlock();
     return E_SUCCESS;
 }
