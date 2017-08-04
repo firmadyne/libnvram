@@ -569,7 +569,8 @@ int nvram_set_int(const char *key, const int val) {
 }
 
 int nvram_set_default(void) {
-    PRINT_MSG("Loading built-in default values = %d!\n", nvram_set_default_builtin());
+    int ret = nvram_set_default_builtin();
+    PRINT_MSG("Loading built-in default values = %d!\n", ret);
 
 #define NATIVE(a, b) \
     if (!system(a)) { \
