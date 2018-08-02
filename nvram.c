@@ -337,7 +337,7 @@ char *nvram_get(const char *key) {
 // We attempt to fix this directly in assembly for MIPS if the key is NULL.
 #if defined(mips)
     if (!key) {
-        asm ("move $a1, %0" :"=r"(key));
+        asm ("move %0, $a1" :"=r"(key));
     }
 #endif
 
