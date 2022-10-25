@@ -21,11 +21,15 @@
 /* Generate variable declarations for external NVRAM data. */
 #define NATIVE(a, b)
 #define PATH(a)
+#define FIRMAE_PATH(a)
+#define FIRMAE_PATH2(a)
 #define TABLE(a) \
     extern const char *a[] __attribute__((weak));
 
     NVRAM_DEFAULTS_PATH
 #undef TABLE
+#undef FIRMAE_PATH2
+#undef FIRMAE_PATH
 #undef PATH
 #undef NATIVE
 
@@ -40,6 +44,16 @@ __typeof__(ftok) __attribute__((weak)) ftok;
 /* Global variables */
 static int init = 0;
 static char temp[BUFFER_SIZE];
+static int is_load_env = 0;
+static int firmae_nvram = 0;
+
+static void firmae_load_env()
+{
+    char* env = getenv("FIRMAE_NVRAM");
+    if (env && env[0] == 't')
+        firmae_nvram = 1;
+    is_load_env = 1;
+}
 
 static int sem_get() {
     int key, semid = 0;
@@ -59,7 +73,7 @@ static int sem_get() {
 
     // Generate key for semaphore based on the mount point
     if (!ftok || (key = ftok(MOUNT_POINT, IPC_KEY)) == -1) {
-        PRINT_MSG("%s\n", "Unable to get semaphore key!");
+        PRINT_MSG("%s\n", "Unable to get semaphore key! Utilize altenative key.. by SR");
         return -1;
     }
 
@@ -75,7 +89,8 @@ static int sem_get() {
             semctl(semid, 0, IPC_RMID);
             semid = -1;
         }
-    } else if (errno == EEXIST) {
+    }
+    else if (errno == EEXIST) {
         // Get the semaphore in non-exclusive mode
         if ((semid = semget(key, 1, 0)) < 0) {
             PRINT_MSG("%s\n", "Unable to get semaphore non-exclusively!");
@@ -90,11 +105,9 @@ static int sem_get() {
             if (semun.buf && semun.buf->sem_otime != 0) {
                 break;
             }
-
-            if (!(timeout % 100)) {
-                PRINT_MSG("Waiting for semaphore initialization (Key: %x, Semaphore: %x)...\n", key, semid);
-            }
         }
+        if  (timeout >= IPC_TIMEOUT)
+            PRINT_MSG("Waiting for semaphore timeout (Key: %x, Semaphore: %x)...\n", key, semid);
     }
 
     return (timeout < IPC_TIMEOUT) ? semid : -1;
@@ -368,6 +381,7 @@ char *nvram_default_get(const char *key, const char *val) {
 int nvram_get_buf(const char *key, char *buf, size_t sz) {
     char path[PATH_MAX] = MOUNT_POINT;
     FILE *f;
+    if (!is_load_env) firmae_load_env();
 
     if (!buf) {
         PRINT_MSG("NULL output buffer, key: %s!\n", key);
@@ -376,7 +390,10 @@ int nvram_get_buf(const char *key, char *buf, size_t sz) {
 
     if (!key) {
         PRINT_MSG("NULL input key, buffer: %s!\n", buf);
-        return E_FAILURE;
+        if (firmae_nvram)
+            return E_SUCCESS;
+        else
+            return E_FAILURE;
     }
 
     PRINT_MSG("%s\n", key);
@@ -387,8 +404,21 @@ int nvram_get_buf(const char *key, char *buf, size_t sz) {
 
     if ((f = fopen(path, "rb")) == NULL) {
         sem_unlock();
-        PRINT_MSG("Unable to open key: %s!\n", path);
-        return E_FAILURE;
+        PRINT_MSG("Unable to open key: %s! Set default value to \"\"\n", path);
+        if (firmae_nvram)
+        {
+            //If key value is not found, make the default value to ""
+            if (!strcmp(key, "noinitrc"))
+                return E_FAILURE;
+            strcpy(buf,"");
+            return E_SUCCESS;
+        }
+        else
+            return E_FAILURE;
+    }
+    else
+    {
+        PRINT_MSG("\n\n[NVRAM] %d %s\n\n", strlen(key), key);
     }
 
     buf[0] = '\0';
@@ -396,6 +426,7 @@ int nvram_get_buf(const char *key, char *buf, size_t sz) {
     while(fgets(tmp, sz, f)) {
         strncat (buf, tmp, sz);
     }
+
     fclose(f);
     sem_unlock();
 
@@ -580,6 +611,7 @@ int nvram_set_int(const char *key, const int val) {
 int nvram_set_default(void) {
     int ret = nvram_set_default_builtin();
     PRINT_MSG("Loading built-in default values = %d!\n", ret);
+    if (!is_load_env) firmae_load_env();
 
 #define NATIVE(a, b) \
     if (!system(a)) { \
@@ -596,17 +628,54 @@ int nvram_set_default(void) {
     if (!access(a, R_OK)) { \
         PRINT_MSG("Loading from default configuration file: %s = %d!\n", a, foreach_nvram_from(a, (void (*)(const char *, const char *, void *)) nvram_set, NULL)); \
     }
+#define FIRMAE_PATH(a) \
+    if (firmae_nvram && !access(a, R_OK)) { \
+        PRINT_MSG("Loading from default configuration file: %s = %d!\n", a, foreach_nvram_from(a, (void (*)(const char *, const char *, void *)) nvram_set, NULL)); \
+    }
+#define FIRMAE_PATH2(a) \
+    if (firmae_nvram && !access(a, R_OK)) { \
+        PRINT_MSG("Loading from default configuration file: %s = %d!\n", a, parse_nvram_from_file(a)); \
+    }
 
     NVRAM_DEFAULTS_PATH
+#undef FIRMAE_PATH2
+#undef FIRMAE_PATH
 #undef PATH
 #undef NATIVE
 #undef TABLE
+
+    // /usr/etc/default in DGN3500-V1.1.00.30_NA.zip
+    FILE *file;
+    if (firmae_nvram &&
+        !access("/firmadyne/nvram_files", R_OK) &&
+        (file = fopen("/firmadyne/nvram_files", "r")))
+    {
+        char line[256];
+        char *nvram_file;
+        char *file_type;
+        while (fgets(line, sizeof line, file) != NULL)
+        {
+            line[strlen(line) - 1] = '\0';
+            nvram_file = strtok(line, " ");
+            file_type = strtok(NULL, " ");
+            file_type = strtok(NULL, " ");
+
+            if (access(nvram_file, R_OK) == -1)
+                continue;
+
+            if (strstr(file_type, "ELF") == NULL)
+                PRINT_MSG("Loading from default configuration file: %s = %d!\n", nvram_file, parse_nvram_from_file(nvram_file));
+        }
+    }
 
     return nvram_set_default_image();
 }
 
 static int nvram_set_default_builtin(void) {
     int ret = E_SUCCESS;
+    char nvramKeyBuffer[100]="";
+    int index=0;
+    if (!is_load_env) firmae_load_env();
 
     PRINT_MSG("%s\n", "Setting built-in default values!");
 
@@ -616,7 +685,24 @@ static int nvram_set_default_builtin(void) {
         ret = E_FAILURE; \
     }
 
+#define FIRMAE_ENTRY(a, b, c) \
+    if (firmae_nvram && b(a, c) != E_SUCCESS) { \
+        PRINT_MSG("Unable to initialize built-in NVRAM value %s!\n", a); \
+        ret = E_FAILURE; \
+    }
+
+#define FIRMAE_FOR_ENTRY(a, b, c, d, e) \
+    index = d; \
+    if (firmae_nvram) { \
+        while (index != e) { \
+            snprintf(nvramKeyBuffer, 0x1E, a, index++); \
+            ENTRY(nvramKeyBuffer, b, c) \
+        } \
+    }
+
     NVRAM_DEFAULTS
+#undef FIRMAE_FOR_ENTRY
+#undef FIRMAE_ENTRY
 #undef ENTRY
 
     return ret;
@@ -701,6 +787,79 @@ int nvram_commit(void) {
 
     return E_SUCCESS;
 }
+
+int parse_nvram_from_file(const char *file)
+{
+    FILE *f;
+    char *buffer;
+    int fileLen=0;
+
+    if((f = fopen(file, "rb")) == NULL){
+        PRINT_MSG("Unable to open file: %s!\n", file);
+        return E_FAILURE;
+    }
+
+    /* Get file length */
+    fseek(f, 0, SEEK_END);
+    fileLen = ftell(f);
+    rewind(f);
+
+    /* Allocate memory */
+    buffer = (char*)malloc(sizeof(char) *fileLen);
+    fread(buffer, 1, fileLen, f);
+    fclose(f);
+
+    /* split the buffer including null byte */
+    #define LEN 1024
+    int i=0,j=0,k=0; int left = 1;
+    char *key="", *val="";
+    char larr[LEN]="", rarr[LEN]="";
+
+    for(i=0; i < fileLen; i++)
+    {
+        char tmp[4];
+        sprintf(tmp, "%c", *(buffer+i));
+
+        if (left==1 && j<LEN)
+            larr[j++] = tmp[0];
+        else if(left==0 && k<LEN)
+            rarr[k++] = tmp[0];
+
+        if(!memcmp(tmp,"=",1)){
+            left=0;
+            larr[j-1]='\0';
+        }
+        if (!memcmp(tmp,"\x00",1)){
+            key = larr; val = rarr;
+            nvram_set(key, val);
+            j=0; k=0; left=1;
+            memset(larr, 0, LEN); memset(rarr, 0, LEN);
+        }
+    }
+    return E_SUCCESS;
+}
+
+#ifdef FIRMAE_KERNEL
+//DIR-615I2, DIR-615I3, DIR-825C1 patch
+int VCTGetPortAutoNegSetting(char *a1, int a2){
+    PRINT_MSG("%s\n", "Dealing wth ioctl ...");
+    return 0;
+}
+
+// netgear 'Rxxxx' series patch to prevent infinite loop in httpd
+int agApi_fwGetFirstTriggerConf(char *a1)
+{
+    PRINT_MSG("%s\n", "agApi_fwGetFirstTriggerConf called!");
+    return 1;
+}
+
+// netgear 'Rxxxx' series patch to prevent infinite loop in httpd
+int agApi_fwGetNextTriggerConf(char *a1)
+{
+    PRINT_MSG("%s\n", "agApi_fwGetNextTriggerConf called!");
+    return 1;
+}
+#endif
 
 // Hack to use static variables in shared library
 #include "alias.c"

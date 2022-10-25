@@ -71,4 +71,15 @@ int nvram_match(const char *key, const char *val);
 // Given a key, checks whether the corresponding NVRAM value does not match val.
 int nvram_invmatch(const char *key, const char *val);
 
+// Parse a default nvram including null byte and passing key,val to nvram_set(JR6150)
+int parse_nvram_from_file(const char *file);
+
+#ifdef FIRMAE_KERNEL
+int VCTGetPortAutoNegSetting(char *a1, int a2);
+// R6200V2, R6250-V1, R6300v2, R6700-V1, R7000-V1 patch infinite loop in httpd
+int agApi_fwGetFirstTriggerConf(char *a1);
+// R6200V2, R6250-V1, R6300v2, R6700-V1, R7000-V1 patch infinite loop in httpd
+int agApi_fwGetNextTriggerConf(char *a1);
+#endif
+
 #endif

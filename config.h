@@ -39,7 +39,18 @@
     PATH("/etc/nvram.update") \
     TABLE(Nvrams) \
     PATH("/etc/wlan/nvram_params") \
-    PATH("/etc/system_nvram_defaults")
+    PATH("/etc/system_nvram_defaults") \
+    FIRMAE_PATH("/image/mnt/nvram_ap.default") \
+    /* "DCS-931L_FIRMWARE_1.04B1.ZIP" by SR */\
+    FIRMAE_PATH("/etc_ro/Wireless/RT2860AP/RT2860_default_vlan") \
+    FIRMAE_PATH("/etc_ro/Wireless/RT2860AP/RT2860_default_novlan") \
+    /* "DGN3500-V1.1.00.30_NA.zip" */\
+    FIRMAE_PATH2("/usr/etc/default") \
+    /* "JR6150-R6050-V1.0.0.22.zip" by SR */ \
+    FIRMAE_PATH("/image/mnt/nvram_whp.default") \
+    FIRMAE_PATH("/image/mnt/nvram_rt.default") \
+    FIRMAE_PATH("/image/mnt/nvram_rpt.default") \
+    FIRMAE_PATH("/image/mnt/nvram.default")
 
 // Default values for NVRAM.
 #define NVRAM_DEFAULTS \
@@ -54,7 +65,7 @@
     ENTRY("lan_bipaddr", nvram_set, "192.168.0.255") \
     ENTRY("lan_netmask", nvram_set, "255.255.255.0") \
     /* Set default timezone, required by multiple images */ \
-    ENTRY("time_zone", nvram_set, "EST5EDT") \
+    ENTRY("time_zone", nvram_set, "PST8PDT") \
     /* Set default WAN MAC address, used by "NBG-416N_V1.00(USA.7)C0.zip" (12786) */ \
     ENTRY("wan_hwaddr_def", nvram_set, "01:23:45:67:89:ab") \
     /* Attempt to define LAN/WAN interfaces */ \
@@ -70,6 +81,28 @@
     /* Used by "DGND3700 Firmware Version 1.0.0.17(NA).zip" (3425) to prevent crashes */ \
     ENTRY("time_zone_x", nvram_set, "0") \
     ENTRY("rip_multicast", nvram_set, "0") \
-    ENTRY("bs_trustedip_enable", nvram_set, "0")
+    ENTRY("bs_trustedip_enable", nvram_set, "0") \
+    /* Set default MAC address, used by "linux-lzma(550A)" by SR */ \
+    FIRMAE_ENTRY("et0macaddr", nvram_set, "01:23:45:67:89:ab")\
+    /* Used by "AC1450-V1.0.0.34_10.0.16.zip" to prevent crashes by SR */ \
+    FIRMAE_ENTRY("filter_rule_tbl", nvram_set, "") \
+    /* Used by Netgear "R6200V2-V1.0.1.14_1.0.14.zip" by SR */ \
+    FIRMAE_ENTRY("pppoe2_schedule_config", nvram_set, "127:0:0:23:59") \
+    FIRMAE_ENTRY("schedule_config", nvram_set, "127:0:0:23:59") \
+    /* Used by Netgear WNDR3400v3, WNDR3500v3 "WNR3500L-V1.2.0.18_40.0.67" to prevent crashes due to following "atoi" func by SR */ \
+    FIRMAE_ENTRY("access_control_mode", nvram_set, "0") \
+    FIRMAE_ENTRY("fwpt_df_count", nvram_set, "0") \
+    FIRMAE_ENTRY("static_if_status", nvram_set, "1") \
+    /* R8500 patch to prevent crashes in httpd */ \
+    FIRMAE_ENTRY("www_relocation", nvram_set, "") \
+    FIRMAE_FOR_ENTRY("usb_info_dev%d", nvram_set, "A200396E0402FF83@1@14.4G@U@1@USB_Storage;U:;0;0@", 0, 101) \
+    /* R6200V2, R6250-V1, R6300v2, R6400, R6700-V1, R7000-V1, R7900, R8000, R8500 patch to prevent crashes in httpd */ \
+    FIRMAE_FOR_ENTRY("wla_ap_isolate_%d", nvram_set, "", 1, 5) \
+    /* R6200V1 patch to prevent crashes in httpd */ \
+    FIRMAE_FOR_ENTRY("wlg_ap_isolate_%d", nvram_set, "", 1, 5) \
+    FIRMAE_FOR_ENTRY("wlg_allow_access_%d", nvram_set, "", 1, 5) \
+    /* R6400-V1, R7900-V1, R8000, R8500 patch to prevent crashes in httpd */ \
+    FIRMAE_FOR_ENTRY("%d:macaddr", nvram_set, "01:23:45:67:89:ab", 0, 3) \
+    FIRMAE_FOR_ENTRY("lan%d_ifnames", nvram_set, "", 1, 10)
 
 #endif
