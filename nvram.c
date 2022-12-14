@@ -13,6 +13,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+#include <mntent.h>
 
 #include "alias.h"
 #include "nvram.h"
@@ -40,6 +41,7 @@
 
 /* Weak symbol definitions for library functions that may not be present */
 __typeof__(ftok) __attribute__((weak)) ftok;
+__typeof__(setmntent) __attribute__((weak)) setmntent;
 
 /* Global variables */
 static int init = 0;
@@ -73,11 +75,11 @@ static int sem_get() {
 
     // Generate key for semaphore based on the mount point
     if (!ftok || (key = ftok(MOUNT_POINT, IPC_KEY)) == -1) {
-        PRINT_MSG("%s\n", "Unable to get semaphore key! Utilize altenative key.. by SR");
-        return -1;
+        //PRINT_MSG("%s ftok %d, key %d\n", "Unable to get semaphore key! Utilize altenative key.. by SR.");
+        key = 246812345; // Hardcoded random value
     }
 
-    PRINT_MSG("Key: %x\n", key);
+    //PRINT_MSG("Key: %x\n", key);
 
     // Get the semaphore using the key
     if ((semid = semget(key, 1, IPC_CREAT | IPC_EXCL | 0666)) >= 0) {
@@ -125,17 +127,29 @@ static void sem_lock() {
 
     // If not initialized, check for existing mount before triggering NVRAM init
     if (!init) {
-        if ((mnt = setmntent("/proc/mounts", "r"))) {
-            while ((ent = getmntent_r(mnt, &entry, temp, BUFFER_SIZE))) {
-                if (!strncmp(ent->mnt_dir, MOUNT_POINT, sizeof(MOUNT_POINT) - 2)) {
-                    init = 1;
-                    PRINT_MSG("%s\n", "Already initialized!");
-                    endmntent(mnt);
-                    goto cont;
-                }
+        if (setmntent) {
+            if ((mnt = setmntent("/proc/mounts", "r"))) {
+              while ((ent = getmntent_r(mnt, &entry, temp, BUFFER_SIZE))) {
+                  if (!strncmp(ent->mnt_dir, MOUNT_POINT, sizeof(MOUNT_POINT) - 2)) {
+                      init = 1;
+                      PRINT_MSG("%s\n", "Already initialized!");
+                      endmntent(mnt);
+                      goto cont;
+                  }
+              }
+              endmntent(mnt);
             }
-            endmntent(mnt);
+        } else {
+          // setmntent is unavailable, when we mount we'll touch /mounted in the directory as a flag
+          FILE *f;
+          if ((f = fopen(MOUNT_POINT "/mounted", "rb")) != NULL) {
+            fclose(f);
+            // We were able to open MOUNT_POINT/mounted  - we probably mounted this previously, bail
+            goto cont;
+          }
+          PRINT_MSG("%s\n", "setmntent is unavailable and no MOUNT_POINT/mounted - do nvram init");
         }
+
 
         PRINT_MSG("%s\n", "Triggering NVRAM initialization!");
         nvram_init();
@@ -196,6 +210,13 @@ int nvram_init(void) {
         sem_unlock();
         PRINT_MSG("Unable to mount tmpfs on mount point %s!\n", MOUNT_POINT);
         return E_FAILURE;
+    }
+
+    // Touch /mounted so we know it exists if we don't have semset
+    if (!setmntent) {
+      if ((f = fopen(MOUNT_POINT "/mounted", "w+")) == NULL) {
+          PRINT_MSG("%s\n", "Unable open mount_point/mounted");
+      }
     }
 
     // Checked by certain Ralink routers
