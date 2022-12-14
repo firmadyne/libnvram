@@ -55,6 +55,8 @@ int nvram_set(const char *key, const char *val);
 int nvram_set_int(const char *key, const int val);
 // Given a key, unsets the corresponding NVRAM value. Will hold lock.
 int nvram_unset(const char *key);
+// Given a key, unset the corresponding NVRAM value if it is set. Will hold lock if it's set
+int nvram_safe_unset(const char *key);
 // Reloads default NVRAM values.
 int nvram_set_default(void);
 
