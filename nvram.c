@@ -442,6 +442,7 @@ int nvram_get_int(const char *key) {
 
 int nvram_getall(char *buf, size_t len) {
     char path[PATH_MAX] = MOUNT_POINT;
+    struct stat path_stat;
     struct dirent *entry;
     size_t pos = 0, ret;
     DIR *dir;
@@ -467,6 +468,11 @@ int nvram_getall(char *buf, size_t len) {
 
         strncpy(path + strlen(MOUNT_POINT), entry->d_name, ARRAY_SIZE(path) - ARRAY_SIZE(MOUNT_POINT) - 1);
         path[PATH_MAX - 1] = '\0';
+
+        stat(path, &path_stat);
+        if (!S_ISREG(path_stat.st_mode)) {
+            continue;
+        }
 
         if ((ret = snprintf(buf + pos, len - pos, "%s=", entry->d_name)) != strlen(entry->d_name) + 1) {
             closedir(dir);
