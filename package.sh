@@ -10,7 +10,7 @@ SCRATCH=$(mktemp -d)/libnvram
 mkdir $SCRATCH
 
 CC=arm-linux-musleabi-gcc make libnvram.so -C /app
-mv libnvram.so $SCRATCH/libnvram.so.arm
+mv libnvram.so $SCRATCH/libnvram.so.armel
 make clean
 
 CC=mipsel-linux-musl-gcc make libnvram.so -C /app
