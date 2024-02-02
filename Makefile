@@ -1,4 +1,4 @@
-CFLAGS=-O2 -fPIC -Wall
+CFLAGS=-O2 -fPIC -Wall -Wno-attribute-alias
 LDFLAGS=-shared -nostdlib
 
 TARGET=libnvram.so libnvram_ioctl.so
