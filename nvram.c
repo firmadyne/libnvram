@@ -773,8 +773,6 @@ int nvram_unset(const char *key) {
 int nvram_safe_unset(const char *key) {
     // If we have a value for this key, unset it. Otherwise no-op
     // Always return E_SUCCESS(?)
-    char* ret = nvram_get(key);
-
     if (nvram_get_buf(key, temp, BUFFER_SIZE) == E_SUCCESS) {
       nvram_unset(key);
     }
