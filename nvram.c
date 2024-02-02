@@ -459,7 +459,8 @@ int nvram_get_buf(const char *key, char *buf, size_t sz) {
 int nvram_get_int(const char *key) {
     char path[PATH_MAX] = MOUNT_POINT;
     FILE *f;
-    int ret;
+    char buf[32]; // Buffer to store ASCII representation of the integer
+    int ret = 0;
 
     if (!key) {
         PRINT_MSG("%s\n", "NULL key!");
@@ -472,18 +473,39 @@ int nvram_get_int(const char *key) {
 
     sem_lock();
 
+    // Try to open the file
     if ((f = fopen(path, "rb")) == NULL) {
         sem_unlock();
         PRINT_MSG("Unable to open key: %s!\n", path);
         return E_FAILURE;
     }
 
-    if (fread(&ret, sizeof(ret), 1, f) != 1) {
+    // Attempt to read the ASCII representation of the integer
+    if (fgets(buf, sizeof(buf), f) != NULL) {
+        // Attempt to convert the read string to an integer
+        char *endptr;
+        long val = strtol(buf, &endptr, 10);
+
+        // Check for conversion errors (no digits found or not all string parsed)
+        if ((endptr != buf && *endptr == '\n') || *endptr == '\0') {
+            ret = (int)val; // Successfully converted ASCII to integer
+        } else {
+            // Reset file pointer and try reading as binary integer
+            fseek(f, 0, SEEK_SET);
+            if (fread(&ret, sizeof(ret), 1, f) != 1) {
+                PRINT_MSG("Unable to read key as binary int: %s!\n", path);
+                fclose(f);
+                sem_unlock();
+                return E_FAILURE;
+            }
+        }
+    } else {
+        PRINT_MSG("Unable to read key: %s!\n", path);
         fclose(f);
         sem_unlock();
-        PRINT_MSG("Unable to read key: %s!\n", path);
         return E_FAILURE;
     }
+
     fclose(f);
     sem_unlock();
 
